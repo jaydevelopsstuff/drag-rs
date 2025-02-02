@@ -152,6 +152,7 @@ impl Default for DragMode {
     }
 }
 
+#[cfg(target_os = "macos")]
 unsafe impl objc::Encode for DragMode {
     fn encode() -> objc::Encoding {
         unsafe { objc::Encoding::from_str("Q") } // unsigned long long
