@@ -105,10 +105,8 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
                         let item: id = msg_send![drag_item, initWithPasteboardWriter: nsurl];
 
                         let _: () = msg_send![item, setDraggingFrame: image_rect contents: img];
-                        print!("[drag -> debug] dragging file: {:?}", path);
 
                         let _: () = msg_send![dragging_items, addObject: item];
-                        println!("[drag -> debug] ....done");
                     }
                 }
                 DragItem::Data { provider, types } => {
@@ -238,7 +236,6 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
                             let animates = this.get_ivar::<BOOL>("animate_on_cancel_or_failure");
                             let mode = *this.get_ivar::<DragMode>("drag_mode");
                             let () = msg_send![dragging_session, setAnimatesToStartingPositionsOnCancelOrFail: *animates];
-                            println!("[drag -> debug] dragging session: {:?}", mode);
 
                             match mode {
                                 DragMode::Copy => 1,  // NSDragOperationCopy
@@ -264,11 +261,7 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
 
                             let callback_closure =
                                 &*(*callback as *mut Box<dyn Fn(DragResult, CursorPosition)>);
-                            println!(
-                                "[drag -> debug] dragging session end: {:?} {:?}",
-                                operation, mouse_location
-                            );
-
+                                
                             if operation == 0 {
                                 // NSDragOperationNone
                                 callback_closure(DragResult::Cancel, mouse_location);
