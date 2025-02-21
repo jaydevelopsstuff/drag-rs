@@ -164,7 +164,7 @@ fn on_drop_performed<F: Fn(DragResult, CursorPosition) + Send + 'static>(
     let window = window.clone();
     let handler_ids = handler_ids.clone();
 
-    drag_context.connect_drop_performed(move |_, _| {
+    drag_context.connect_drop_performed(move |context, _| {
         println!("Drop performed successfully");
         println!("Selected action: {:?}", context.selected_action());
         println!("Suggested action: {:?}", context.suggested_action());
