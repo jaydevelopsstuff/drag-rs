@@ -166,6 +166,8 @@ fn on_drop_performed<F: Fn(DragResult, CursorPosition) + Send + 'static>(
 
     drag_context.connect_drop_performed(move |_, _| {
         println!("Drop performed successfully");
+        println!("Selected action: {:?}", context.selected_action());
+        println!("Suggested action: {:?}", context.suggested_action());
         cleanup_signal_handlers(&handler_ids, &window);
         callback(DragResult::Dropped, get_cursor_position(&window).unwrap());
     });
