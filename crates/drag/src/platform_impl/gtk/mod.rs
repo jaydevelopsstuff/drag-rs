@@ -26,7 +26,6 @@ pub fn start_drag<F: Fn(DragResult, CursorPosition) + Send + 'static>(
     options: Options,
 ) -> crate::Result<()> {
     println!("Starting drag operation with mode: {:?}", options.mode);
-
     let handler_ids: Arc<Mutex<Vec<SignalHandlerId>>> = Arc::new(Mutex::new(vec![]));
     let drag_action = match options.mode {
         DragMode::Copy => gdk::DragAction::COPY,
@@ -37,7 +36,7 @@ pub fn start_drag<F: Fn(DragResult, CursorPosition) + Send + 'static>(
     window.drag_source_set(gdk::ModifierType::BUTTON1_MASK, &[], drag_action);
 
     match item {
-        DragItem::Files(ref paths) => {
+        DragItem::Files(paths) => {
             println!("Setting up file drag with {} paths", paths.len());
             window.drag_source_add_uri_targets();
             handler_ids
@@ -55,7 +54,9 @@ pub fn start_drag<F: Fn(DragResult, CursorPosition) + Send + 'static>(
                 }));
         }
         DragItem::Data { .. } => {
-            println!("Data drag type currently not fully implemented");
+            // Currently leaving it as is as we can utilize it as a dummy dragging feature
+            // on_drop_callback(DragResult::Cancel, get_cursor_position(window).unwrap());
+            // return Ok(());
         }
     }
 
@@ -76,48 +77,39 @@ pub fn start_drag<F: Fn(DragResult, CursorPosition) + Send + 'static>(
 
             println!("Setting up drag icon");
             let icon_pixbuf: Option<gdk_pixbuf::Pixbuf> = match &image {
-                Image::Raw(data) => {
-                    println!("Using raw image data for icon");
-                    image_binary_to_pixbuf(data)
-                }
-                Image::File(path) => {
-                    println!("Loading icon from file: {:?}", path);
-                    match std::fs::read(path) {
-                        Ok(bytes) => image_binary_to_pixbuf(&bytes),
-                        Err(e) => {
-                            println!("Failed to read icon file: {:?}", e);
-                            None
-                        }
-                    }
-                }
+                Image::Raw(data) => image_binary_to_pixbuf(data),
+                Image::File(path) => match std::fs::read(path) {
+                    Ok(bytes) => image_binary_to_pixbuf(&bytes),
+                    Err(_) => None,
+                },
             };
             if let Some(icon) = icon_pixbuf {
-                println!("Setting drag icon");
                 drag_context.drag_set_icon_pixbuf(&icon, 0, 0);
-            } else {
-                println!("No icon available for drag operation");
             }
 
             Ok(())
         } else {
-            println!("Failed to create drag context");
             Err(crate::Error::FailedToStartDrag)
         }
     } else {
-        println!("No target list available");
         Err(crate::Error::EmptyTargetList)
     }
 }
 
-fn cleanup_signal_handlers(
-    handler_ids: &Arc<Mutex<Vec<SignalHandlerId>>>,
-    window: &gtk::ApplicationWindow,
-) {
-    println!("Cleaning up signal handlers");
-    let handler_ids = &mut handler_ids.lock().unwrap();
-    clear_signal_handlers(window, handler_ids);
-    window.drag_source_unset();
-    println!("Signal handlers cleaned up");
+fn image_binary_to_pixbuf(data: &[u8]) -> Option<gdk_pixbuf::Pixbuf> {
+    let loader = gdk_pixbuf::PixbufLoader::new();
+    loader
+        .write(data)
+        .and_then(|_| loader.close())
+        .map_err(|_| ())
+        .and_then(|_| loader.pixbuf().ok_or(()))
+        .ok()
+}
+
+fn clear_signal_handlers(window: &gtk::ApplicationWindow, handler_ids: &mut Vec<SignalHandlerId>) {
+    for handler_id in handler_ids.drain(..) {
+        window.disconnect(handler_id);
+    }
 }
 
 fn on_drop_failed<F: Fn(DragResult, CursorPosition) + Send + 'static>(
@@ -144,13 +136,22 @@ fn on_drop_failed<F: Fn(DragResult, CursorPosition) + Send + 'static>(
 
             cleanup_signal_handlers(&handler_ids_clone, &window_clone);
             if skip_animatation_on_cancel_or_failure {
-                println!("Skipping animation on cancel");
                 Propagation::Stop
             } else {
-                println!("Proceeding with default animation");
                 Propagation::Proceed
             }
         }));
+}
+
+fn cleanup_signal_handlers(
+    handler_ids: &Arc<Mutex<Vec<SignalHandlerId>>>,
+    window: &gtk::ApplicationWindow,
+) {
+    println!("Cleaning up signal handlers");
+    let handler_ids = &mut handler_ids.lock().unwrap();
+    clear_signal_handlers(window, handler_ids);
+    window.drag_source_unset();
+    println!("Signal handlers cleaned up");
 }
 
 fn on_drop_performed<F: Fn(DragResult, CursorPosition) + Send + 'static>(
@@ -171,17 +172,14 @@ fn on_drop_performed<F: Fn(DragResult, CursorPosition) + Send + 'static>(
 }
 
 fn get_cursor_position(window: &gtk::ApplicationWindow) -> Result<CursorPosition, Error> {
-    println!("Getting cursor position");
     if let Some(cursor) = window
         .display()
         .default_seat()
         .and_then(|seat| seat.pointer())
     {
         let (_, x, y) = cursor.position();
-        println!("Cursor position: x={}, y={}", x, y);
         Ok(CursorPosition { x, y })
     } else {
-        println!("Failed to get cursor position");
         Err(Error::FailedToGetCursorPosition)
     }
 }
