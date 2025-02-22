@@ -217,7 +217,7 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
     item: DragItem,
     image: Image,
     on_drop_callback: F,
-    _options: Options,
+    options: Options,
 ) -> crate::Result<()> {
     if let Ok(RawWindowHandle::Win32(_w)) = handle.window_handle().map(|h| h.as_raw()) {
         match item {
