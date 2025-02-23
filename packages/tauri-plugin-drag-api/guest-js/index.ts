@@ -17,7 +17,7 @@ export interface CursorPosition {
 export interface Options {
   item: DragItem;
   icon: string;
-  mode?: "Copy" | "Move";
+  mode?: "copy" | "move";
 }
 
 export interface CallbackPayload {

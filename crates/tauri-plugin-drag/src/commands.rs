@@ -77,6 +77,7 @@ pub struct CallbackResult {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum DragMode {
     Copy,
     Move,
