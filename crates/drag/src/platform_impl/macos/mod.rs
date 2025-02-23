@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::ffi::{c_char, c_void};
+use std::{
+    ffi::{c_char, c_void},
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use cocoa::{
     appkit::{NSAlignmentOptions, NSApp, NSEvent, NSEventModifierFlags, NSEventType, NSImage},
@@ -16,7 +19,7 @@ use objc::{
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
-use crate::{CursorPosition, DragItem, DragResult, Image, Options};
+use crate::{CursorPosition, DragItem, DragMode, DragResult, Image, Options};
 
 const UTF8_ENCODING: usize = 4;
 
@@ -211,6 +214,7 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
                 Some(mut cls) => {
                     cls.add_ivar::<*mut c_void>("on_drop_ptr");
                     cls.add_ivar::<BOOL>("animate_on_cancel_or_failure");
+                    cls.add_ivar::<DragMode>("drag_mode");
                     cls.add_method(
                         sel!(draggingSession:sourceOperationMaskForDraggingContext:),
                         dragging_session
@@ -230,15 +234,13 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
                     ) -> NSUInteger {
                         unsafe {
                             let animates = this.get_ivar::<BOOL>("animate_on_cancel_or_failure");
+                            let mode = *this.get_ivar::<DragMode>("drag_mode");
                             let () = msg_send![dragging_session, setAnimatesToStartingPositionsOnCancelOrFail: *animates];
-                        }
 
-                        if context == 0 {
-                            // NSDragOperationCopy
-                            1
-                        } else {
-                            // NSDragOperationEvery
-                            NSUInteger::MAX
+                            match mode {
+                                DragMode::Copy => 1,  // NSDragOperationCopy
+                                DragMode::Move => 16, // NSDragOperationMove
+                            }
                         }
                     }
 
@@ -259,7 +261,7 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
 
                             let callback_closure =
                                 &*(*callback as *mut Box<dyn Fn(DragResult, CursorPosition)>);
-
+                                
                             if operation == 0 {
                                 // NSDragOperationNone
                                 callback_closure(DragResult::Cancel, mouse_location);
@@ -287,11 +289,12 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
                 "animate_on_cancel_or_failure",
                 !options.skip_animatation_on_cancel_or_failure,
             );
+            (*source).set_ivar("drag_mode", options.mode);
 
             let _: () = msg_send![ns_view, beginDraggingSessionWithItems: dragging_items event: drag_event source: source];
-        }
 
-        Ok(())
+            Ok(())
+        }
     } else {
         Err(crate::Error::UnsupportedWindowHandle)
     }

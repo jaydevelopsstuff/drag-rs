@@ -88,7 +88,6 @@ extern crate objc;
 use std::path::PathBuf;
 
 mod platform_impl;
-
 pub use platform_impl::start_drag;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -140,9 +139,30 @@ pub enum DragItem {
     },
 }
 
+#[derive(Debug, Clone, Copy)]
+#[repr(u64)]
+pub enum DragMode {
+    Copy = 1,  // NSDragOperationCopy
+    Move = 16, // NSDragOperationMove
+}
+
+impl Default for DragMode {
+    fn default() -> Self {
+        DragMode::Copy
+    }
+}
+
+#[cfg(target_os = "macos")]
+unsafe impl objc::Encode for DragMode {
+    fn encode() -> objc::Encoding {
+        unsafe { objc::Encoding::from_str("Q") } // unsigned long long
+    }
+}
+
 #[derive(Default)]
 pub struct Options {
     pub skip_animatation_on_cancel_or_failure: bool,
+    pub mode: DragMode,
 }
 
 /// An image definition.

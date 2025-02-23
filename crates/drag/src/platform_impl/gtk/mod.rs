@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use crate::{CursorPosition, DragItem, DragResult, Error, Image, Options};
+use crate::{CursorPosition, DragItem, DragMode, DragResult, Error, Image, Options};
 use gdkx11::{
     gdk,
     glib::{ObjectExt, Propagation, SignalHandlerId},
@@ -25,22 +25,31 @@ pub fn start_drag<F: Fn(DragResult, CursorPosition) + Send + 'static>(
     on_drop_callback: F,
     options: Options,
 ) -> crate::Result<()> {
+    println!("Starting drag operation with mode: {:?}", options.mode);
     let handler_ids: Arc<Mutex<Vec<SignalHandlerId>>> = Arc::new(Mutex::new(vec![]));
+    let drag_action = match options.mode {
+        DragMode::Copy => gdk::DragAction::COPY,
+        DragMode::Move => gdk::DragAction::MOVE,
+    };
 
-    window.drag_source_set(gdk::ModifierType::BUTTON1_MASK, &[], gdk::DragAction::COPY);
+    println!("Setting drag source with action: {:?}", drag_action);
+    window.drag_source_set(gdk::ModifierType::BUTTON1_MASK, &[], drag_action);
 
     match item {
         DragItem::Files(paths) => {
+            println!("Setting up file drag with {} paths", paths.len());
             window.drag_source_add_uri_targets();
             handler_ids
                 .lock()
                 .unwrap()
                 .push(window.connect_drag_data_get(move |_, _, data, _, _| {
+                    println!("Preparing URIs for drag data");
                     let uris: Vec<String> = paths
                         .iter()
                         .map(|path| format!("file://{}", path.display()))
                         .collect();
                     let uris: Vec<&str> = uris.iter().map(|s| s.as_str()).collect();
+                    println!("Setting URIs: {:?}", uris);
                     data.set_uris(&uris);
                 }));
         }
@@ -52,18 +61,21 @@ pub fn start_drag<F: Fn(DragResult, CursorPosition) + Send + 'static>(
     }
 
     if let Some(target_list) = &window.drag_source_get_target_list() {
+        println!("Got target list, initiating drag");
         if let Some(drag_context) = window.drag_begin_with_coordinates(
             target_list,
-            gdk::DragAction::COPY,
+            drag_action,
             gdk::ffi::GDK_BUTTON1_MASK as i32,
             None,
             -1,
             -1,
         ) {
+            println!("Drag context created successfully");
             let callback = Rc::new(on_drop_callback);
             on_drop_failed(callback.clone(), window, &handler_ids, &options);
             on_drop_performed(callback.clone(), window, &handler_ids, &drag_context);
 
+            println!("Setting up drag icon");
             let icon_pixbuf: Option<gdk_pixbuf::Pixbuf> = match &image {
                 Image::Raw(data) => image_binary_to_pixbuf(data),
                 Image::File(path) => match std::fs::read(path) {
@@ -106,6 +118,7 @@ fn on_drop_failed<F: Fn(DragResult, CursorPosition) + Send + 'static>(
     handler_ids: &Arc<Mutex<Vec<SignalHandlerId>>>,
     options: &Options,
 ) {
+    println!("Setting up drop failed handler");
     let window_clone = window.clone();
     let handler_ids_clone = handler_ids.clone();
 
@@ -115,6 +128,7 @@ fn on_drop_failed<F: Fn(DragResult, CursorPosition) + Send + 'static>(
         .lock()
         .unwrap()
         .push(window.connect_drag_failed(move |_, _, _drag_result| {
+            println!("Drag failed or cancelled");
             callback(
                 DragResult::Cancel,
                 get_cursor_position(&window_clone).unwrap(),
@@ -133,9 +147,11 @@ fn cleanup_signal_handlers(
     handler_ids: &Arc<Mutex<Vec<SignalHandlerId>>>,
     window: &gtk::ApplicationWindow,
 ) {
+    println!("Cleaning up signal handlers");
     let handler_ids = &mut handler_ids.lock().unwrap();
     clear_signal_handlers(window, handler_ids);
     window.drag_source_unset();
+    println!("Signal handlers cleaned up");
 }
 
 fn on_drop_performed<F: Fn(DragResult, CursorPosition) + Send + 'static>(
@@ -144,10 +160,14 @@ fn on_drop_performed<F: Fn(DragResult, CursorPosition) + Send + 'static>(
     handler_ids: &Arc<Mutex<Vec<SignalHandlerId>>>,
     drag_context: &gdk::DragContext,
 ) {
+    println!("Setting up drop performed handler");
     let window = window.clone();
     let handler_ids = handler_ids.clone();
 
-    drag_context.connect_drop_performed(move |_, _| {
+    drag_context.connect_drop_performed(move |context, _| {
+        println!("Drop performed successfully");
+        println!("Selected action: {:?}", context.selected_action());
+        println!("Suggested action: {:?}", context.suggested_action());
         cleanup_signal_handlers(&handler_ids, &window);
         callback(DragResult::Dropped, get_cursor_position(&window).unwrap());
     });

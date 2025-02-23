@@ -167,6 +167,7 @@ fn perform_drag<R: Runtime, F: Fn() + Send + Sync + 'static>(
                 },
                 drag::Options {
                     skip_animatation_on_cancel_or_failure: true,
+                    ..Default::default()
                 },
             )
             .map_err(Into::into),

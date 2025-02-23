@@ -4,7 +4,7 @@
 
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
-use crate::{CursorPosition, DragItem, DragResult, Image, Options};
+use crate::{CursorPosition, DragItem, DragMode, DragResult, Image, Options};
 
 use std::{
     ffi::c_void,
@@ -21,7 +21,9 @@ use windows::{
         System::Com::*,
         System::Memory::*,
         System::Ole::{DoDragDrop, OleInitialize},
-        System::Ole::{IDropSource, IDropSource_Impl, CF_HDROP, DROPEFFECT, DROPEFFECT_COPY},
+        System::Ole::{
+            IDropSource, IDropSource_Impl, CF_HDROP, DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_MOVE,
+        },
         System::SystemServices::{MK_LBUTTON, MODIFIERKEYS_FLAGS},
         UI::{
             Shell::{
@@ -215,7 +217,7 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
     item: DragItem,
     image: Image,
     on_drop_callback: F,
-    _options: Options,
+    options: Options,
 ) -> crate::Result<()> {
     if let Ok(RawWindowHandle::Win32(_w)) = handle.window_handle().map(|h| h.as_raw()) {
         match item {
@@ -246,12 +248,13 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
                     }
 
                     let mut out_dropeffect = DROPEFFECT::default();
-                    let drop_result = DoDragDrop(
-                        &data_object,
-                        &drop_source,
-                        DROPEFFECT_COPY,
-                        &mut out_dropeffect,
-                    );
+                    let effect = match options.mode {
+                        DragMode::Copy => DROPEFFECT_COPY,
+                        DragMode::Move => DROPEFFECT_MOVE,
+                    };
+
+                    let drop_result =
+                        DoDragDrop(&data_object, &drop_source, effect, &mut out_dropeffect);
                     let mut pt = POINT { x: 0, y: 0 };
                     GetCursorPos(&mut pt)?;
                     if drop_result == DRAGDROP_S_DROP {
