@@ -230,7 +230,7 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
                         this: &Object,
                         _: Sel,
                         dragging_session: id,
-                        context: NSUInteger,
+                        _context: NSUInteger,
                     ) -> NSUInteger {
                         unsafe {
                             let animates = this.get_ivar::<BOOL>("animate_on_cancel_or_failure");
@@ -261,7 +261,7 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
 
                             let callback_closure =
                                 &*(*callback as *mut Box<dyn Fn(DragResult, CursorPosition)>);
-                                
+
                             if operation == 0 {
                                 // NSDragOperationNone
                                 callback_closure(DragResult::Cancel, mouse_location);

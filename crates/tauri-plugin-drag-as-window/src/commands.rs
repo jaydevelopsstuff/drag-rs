@@ -6,7 +6,7 @@ use std::{
 };
 
 use base64::Engine;
-use serde::{ser::Serializer, Serialize};
+use serde::{ser::Serializer, Deserialize, Serialize};
 use tauri::{
     command, ipc::Channel, AppHandle, DragDropEvent, Manager, Runtime, WebviewWindow, WindowEvent,
 };
@@ -47,6 +47,42 @@ pub struct CallbackResult {
     cursor_pos: drag::CursorPosition,
 }
 
+#[derive(Deserialize)]
+pub enum DragMode {
+    Copy,
+    Move,
+}
+
+impl Default for DragMode {
+    fn default() -> Self {
+        Self::Copy
+    }
+}
+
+impl From<DragMode> for drag::DragMode {
+    fn from(value: DragMode) -> Self {
+        match value {
+            DragMode::Copy => Self::Copy,
+            DragMode::Move => Self::Move,
+        }
+    }
+}
+
+#[derive(Default, Deserialize)]
+pub struct DragOptions {
+    #[serde(default)]
+    mode: DragMode,
+}
+
+impl From<DragOptions> for drag::Options {
+    fn from(options: DragOptions) -> Self {
+        Self {
+            skip_animatation_on_cancel_or_failure: true,
+            mode: options.mode.into(),
+        }
+    }
+}
+
 #[command]
 pub async fn on_drop<R: Runtime>(
     window: WebviewWindow<R>,
@@ -81,8 +117,17 @@ pub async fn drag_new_window<R: Runtime>(
     window: WebviewWindow<R>,
     image_base64: String,
     on_event: Channel<CallbackResult>,
+    options: Option<DragOptions>,
 ) -> Result<()> {
-    perform_drag(app, window, DragData::Data, image_base64, on_event, || {})
+    perform_drag(
+        app,
+        window,
+        DragData::Data,
+        image_base64,
+        options.unwrap_or_default(),
+        on_event,
+        || {},
+    )
 }
 
 #[command]
@@ -92,6 +137,7 @@ pub async fn drag_back<R: Runtime>(
     data: serde_json::Value,
     image_base64: String,
     on_event: Channel<CallbackResult>,
+    options: Option<DragOptions>,
 ) -> Result<()> {
     let data = serde_json::to_vec(&data)?;
 
@@ -107,6 +153,7 @@ pub async fn drag_back<R: Runtime>(
         window,
         DragData::Path(path),
         image_base64,
+        options.unwrap_or_default(),
         on_event,
         move || {
             let file_ = file.clone();
@@ -129,6 +176,7 @@ fn perform_drag<R: Runtime, F: Fn() + Send + Sync + 'static>(
     window: WebviewWindow<R>,
     data: DragData,
     image_base64: String,
+    drag_options: DragOptions,
     on_event: Channel<CallbackResult>,
     handler: F,
 ) -> Result<()> {
@@ -167,7 +215,7 @@ fn perform_drag<R: Runtime, F: Fn() + Send + Sync + 'static>(
                 },
                 drag::Options {
                     skip_animatation_on_cancel_or_failure: true,
-                    ..Default::default()
+                    ..drag_options.into()
                 },
             )
             .map_err(Into::into),

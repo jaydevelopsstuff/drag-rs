@@ -76,12 +76,49 @@ pub struct CallbackResult {
     cursor_pos: drag::CursorPosition,
 }
 
+#[derive(Deserialize)]
+pub enum DragMode {
+    Copy,
+    Move,
+}
+
+impl Default for DragMode {
+    fn default() -> Self {
+        Self::Copy
+    }
+}
+
+impl From<DragMode> for drag::DragMode {
+    fn from(value: DragMode) -> Self {
+        match value {
+            DragMode::Copy => Self::Copy,
+            DragMode::Move => Self::Move,
+        }
+    }
+}
+
+#[derive(Default, Deserialize)]
+pub struct DragOptions {
+    #[serde(default)]
+    mode: DragMode,
+}
+
+impl From<DragOptions> for drag::Options {
+    fn from(options: DragOptions) -> Self {
+        Self {
+            skip_animatation_on_cancel_or_failure: false,
+            mode: options.mode.into(),
+        }
+    }
+}
+
 #[command]
 pub async fn start_drag<R: Runtime>(
     app: AppHandle<R>,
     window: WebviewWindow<R>,
     item: DragItem,
     image: Image,
+    options: Option<DragOptions>,
     on_event: Channel<CallbackResult>,
 ) -> Result<()> {
     let (tx, rx) = channel();
@@ -118,7 +155,7 @@ pub async fn start_drag<R: Runtime>(
                     let callback_result = CallbackResult { result, cursor_pos };
                     let _ = on_event.send(callback_result);
                 },
-                Default::default(),
+                options.unwrap_or_default().into(),
             )
             .map_err(Into::into),
             Err(e) => Err(e.into()),

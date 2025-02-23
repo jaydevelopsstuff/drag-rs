@@ -17,6 +17,7 @@ export interface CursorPosition {
 export interface Options {
   item: DragItem;
   icon: string;
+  mode?: "Copy" | "Move";
 }
 
 export interface CallbackPayload {
@@ -64,6 +65,9 @@ export async function startDrag(
   await invoke("plugin:drag|start_drag", {
     item: options.item,
     image: options.icon,
+    options: {
+      mode: options.mode,
+    },
     onEvent: onEventChannel,
   });
 }

@@ -20,6 +20,10 @@ export interface CallbackPayload {
   cursorPos: CursorPosition;
 }
 
+export interface DragOptions {
+  mode?: "Copy" | "Move";
+}
+
 /**
  * Listen to a DOM element being dropped in this window. The data that was associated with the drop event is passed as argument to the handler closure.
  *
@@ -60,6 +64,7 @@ export async function onElementDrop(handler: (data: any) => void) {
  */
 export async function dragAsWindow(
   el: string | HTMLElement,
+  options?: DragOptions,
   onDrop?: (result: CallbackPayload) => void
 ): Promise<void> {
   const element = typeof el === "string" ? document.querySelector(el) : el;
@@ -76,6 +81,7 @@ export async function dragAsWindow(
 
   await invoke("plugin:drag-as-window|drag_new_window", {
     imageBase64: canvas.toDataURL("image/png"),
+    options,
     onEvent: onDropChannel,
   });
 }
@@ -98,6 +104,7 @@ export async function dragAsWindow(
 export async function dragBack(
   el: string | HTMLElement,
   data: any,
+  options?: DragOptions,
   onEvent?: (result: CallbackPayload) => void
 ): Promise<void> {
   const element = typeof el === "string" ? document.querySelector(el) : el;
@@ -115,6 +122,7 @@ export async function dragBack(
   await invoke("plugin:drag-as-window|drag_back", {
     data,
     imageBase64: canvas.toDataURL("image/png"),
+    options,
     onEvent: onEventChannel,
   });
 }
