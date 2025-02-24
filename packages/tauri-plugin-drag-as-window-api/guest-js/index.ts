@@ -64,8 +64,8 @@ export async function onElementDrop(handler: (data: any) => void) {
  */
 export async function dragAsWindow(
   el: string | HTMLElement,
-  options?: DragOptions,
-  onDrop?: (result: CallbackPayload) => void
+  onDrop?: (result: CallbackPayload) => void,
+  options?: DragOptions
 ): Promise<void> {
   const element = typeof el === "string" ? document.querySelector(el) : el;
   if (element === null) {
@@ -104,8 +104,8 @@ export async function dragAsWindow(
 export async function dragBack(
   el: string | HTMLElement,
   data: any,
-  options?: DragOptions,
-  onEvent?: (result: CallbackPayload) => void
+  onEvent?: (result: CallbackPayload) => void,
+  options?: DragOptions
 ): Promise<void> {
   const element = typeof el === "string" ? document.querySelector(el) : el;
   if (element === null) {
