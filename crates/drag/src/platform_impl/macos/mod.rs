@@ -63,7 +63,7 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
             // wry replaces the ns_view so we don't really use AppKitWindowHandle::ns_view
             let ns_view: id = msg_send![window, contentView];
 
-            let current_position = NSPoint::new(0., 0.);
+            let current_position: NSPoint = msg_send![window, mouseLocationOutsideOfEventStream];
 
             let img: id = msg_send![class!(NSImage), alloc];
             let img: id = match image {
