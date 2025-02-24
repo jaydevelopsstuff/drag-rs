@@ -17,7 +17,12 @@
     },
     "rust": {
       "version": true,
-      "getPublishedVersion": "cargo search ${ pkg.pkg } --limit 1 | sed -nE 's/^[^\"]*\"//; s/\".*//1p' -",
+      "getPublishedVersion": {
+        "use": "fetch:check",
+        "options": {
+          "url": "https://crates.io/api/v1/crates/${ pkg.pkgFile.pkg.package.name }/${ pkg.pkgFile.version }"
+        }
+      },
       "prepublish": [
         "sudo apt-get update",
         "sudo apt-get install -y webkit2gtk-4.1"
@@ -43,12 +48,16 @@
     "tauri-plugin-drag": {
       "path": "./crates/tauri-plugin-drag",
       "manager": "rust",
-      "dependencies": ["drag"]
+      "dependencies": [
+        "drag"
+      ]
     },
     "tauri-plugin-drag-as-window": {
       "path": "./crates/tauri-plugin-drag-as-window",
       "manager": "rust",
-      "dependencies": ["drag"]
+      "dependencies": [
+        "drag"
+      ]
     }
   }
 }
