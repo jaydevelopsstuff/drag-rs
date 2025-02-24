@@ -55,7 +55,7 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
     item: DragItem,
     image: Image,
     on_drop_callback: F,
-    _options: Options,
+    options: Options,
 ) -> crate::Result<()> {
     if let Ok(RawWindowHandle::AppKit(w)) = handle.window_handle().map(|h| h.as_raw()) {
         unsafe {
@@ -282,6 +282,14 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
                 Box::new(on_drop_callback) as Box<dyn Fn(DragResult, CursorPosition) + Send>;
             let callback_ptr = Box::into_raw(Box::new(on_drop_callback));
             (*source).set_ivar("on_drop_ptr", callback_ptr as *mut _ as *mut c_void);
+            (*source).set_ivar(
+                "animate_on_cancel_or_failure",
+                if options.skip_animatation_on_cancel_or_failure {
+                    YES
+                } else {
+                    NO
+                },
+            );
 
             let _: () = msg_send![ns_view, beginDraggingSessionWithItems: dragging_items event: drag_event source: source];
         }
