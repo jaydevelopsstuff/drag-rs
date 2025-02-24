@@ -5,7 +5,7 @@
 use std::ffi::{c_char, c_void};
 
 use cocoa::{
-    appkit::{NSAlignmentOptions, NSApp, NSEvent, NSEventModifierFlags, NSEventType, NSImage},
+    appkit::{NSApp, NSEvent, NSEventModifierFlags, NSEventType, NSImage},
     base::{id, nil},
     foundation::{NSArray, NSData, NSPoint, NSRect, NSSize, NSUInteger},
 };
