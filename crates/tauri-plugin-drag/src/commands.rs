@@ -76,19 +76,53 @@ pub struct CallbackResult {
     cursor_pos: drag::CursorPosition,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum DragMode {
-    #[default]
     Copy,
+    Link,
+    Generic,
+    Private,
     Move,
+    Delete,
+    Every,
 }
 
 impl From<DragMode> for drag::DragMode {
     fn from(value: DragMode) -> Self {
         match value {
             DragMode::Copy => Self::Copy,
+            DragMode::Link => Self::Link,
+            DragMode::Generic => Self::Generic,
+            DragMode::Private => Self::Private,
             DragMode::Move => Self::Move,
+            DragMode::Delete => Self::Delete,
+            DragMode::Every => Self::Every,
+        }
+    }
+}
+
+/// The set of allowed drag operations, either a single mode or a list of them.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum DragModes {
+    One(DragMode),
+    Many(Vec<DragMode>),
+}
+
+impl Default for DragModes {
+    fn default() -> Self {
+        Self::One(DragMode::Copy)
+    }
+}
+
+impl From<DragModes> for drag::DragMode {
+    fn from(value: DragModes) -> Self {
+        match value {
+            DragModes::One(mode) => mode.into(),
+            DragModes::Many(modes) => modes
+                .into_iter()
+                .fold(drag::DragMode::None, |acc, mode| acc | mode.into()),
         }
     }
 }
@@ -96,7 +130,7 @@ impl From<DragMode> for drag::DragMode {
 #[derive(Default, Deserialize)]
 pub struct DragOptions {
     #[serde(default)]
-    mode: DragMode,
+    mode: DragModes,
 }
 
 impl From<DragOptions> for drag::Options {
@@ -160,4 +194,26 @@ pub async fn start_drag<R: Runtime>(
     })?;
 
     rx.recv().unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DragOptions;
+
+    fn mode(json: &str) -> drag::DragMode {
+        drag::Options::from(serde_json::from_str::<DragOptions>(json).unwrap()).mode
+    }
+
+    #[test]
+    fn deserializes_drag_modes() {
+        assert_eq!(mode("{}"), drag::DragMode::Copy);
+        assert_eq!(mode(r#"{"mode": "move"}"#), drag::DragMode::Move);
+        assert_eq!(mode(r#"{"mode": ["move"]}"#), drag::DragMode::Move);
+        assert_eq!(
+            mode(r#"{"mode": ["copy", "move", "delete"]}"#),
+            drag::DragMode::Copy | drag::DragMode::Move | drag::DragMode::Delete
+        );
+        assert_eq!(mode(r#"{"mode": []}"#), drag::DragMode::None);
+        assert_eq!(mode(r#"{"mode": "every"}"#), drag::DragMode::Every);
+    }
 }
