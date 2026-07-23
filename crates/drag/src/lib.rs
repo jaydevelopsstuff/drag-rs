@@ -135,21 +135,61 @@ pub enum DragItem {
     },
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-#[repr(u64)]
-pub enum DragMode {
-    #[default]
-    Copy = 1, // NSDragOperationCopy
-    Move = 16, // NSDragOperationMove
+bitflags::bitflags! {
+    /// The operations a drag source allows a drop target to perform.
+    ///
+    /// This is a bitmask mirroring [`NSDragOperation`], so several operations can be
+    /// combined with `|`:
+    ///
+    /// ```
+    /// # use drag::DragMode;
+    /// let mode = DragMode::Copy | DragMode::Move;
+    /// assert!(mode.contains(DragMode::Copy));
+    /// ```
+    ///
+    /// Only [`DragMode::Copy`], [`DragMode::Move`] and [`DragMode::Link`] have an equivalent
+    /// outside of macOS; the remaining operations are ignored on Windows and Linux.
+    ///
+    /// [`NSDragOperation`]: https://developer.apple.com/documentation/appkit/nsdragoperation?language=objc
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[allow(non_upper_case_globals)]
+    pub struct DragMode: u64 {
+        /// No operation is allowed, i.e. the drag cannot be dropped anywhere.
+        const None = 0;
+        /// The data can be copied.
+        const Copy = 1;
+        /// The data can be shared, i.e. a link to it can be created.
+        const Link = 2;
+        /// The operation is defined by the destination.
+        const Generic = 4;
+        /// The operation is negotiated privately between the source and the destination.
+        const Private = 8;
+        /// The data can be moved.
+        const Move = 16;
+        /// The data can be deleted.
+        const Delete = 32;
+        /// Every operation is allowed.
+        const Every = u64::MAX;
+    }
+}
+
+impl Default for DragMode {
+    fn default() -> Self {
+        Self::Copy
+    }
 }
 
 #[cfg(target_os = "macos")]
 impl From<DragMode> for objc2_app_kit::NSDragOperation {
     fn from(value: DragMode) -> Self {
-        match value {
-            DragMode::Copy => objc2_app_kit::NSDragOperation::Copy,
-            DragMode::Move => objc2_app_kit::NSDragOperation::Move,
-        }
+        objc2_app_kit::NSDragOperation::from_bits_retain(value.bits() as _)
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl From<objc2_app_kit::NSDragOperation> for DragMode {
+    fn from(value: objc2_app_kit::NSDragOperation) -> Self {
+        DragMode::from_bits_retain(value.0 as _)
     }
 }
 

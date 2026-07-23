@@ -22,7 +22,8 @@ use windows::{
         System::Memory::*,
         System::Ole::{DoDragDrop, OleInitialize},
         System::Ole::{
-            IDropSource, IDropSource_Impl, CF_HDROP, DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_MOVE,
+            IDropSource, IDropSource_Impl, CF_HDROP, DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_LINK,
+            DROPEFFECT_MOVE, DROPEFFECT_NONE,
         },
         System::SystemServices::{MK_LBUTTON, MODIFIERKEYS_FLAGS},
         UI::{
@@ -248,10 +249,18 @@ pub fn start_drag<W: HasWindowHandle, F: Fn(DragResult, CursorPosition) + Send +
                     }
 
                     let mut out_dropeffect = DROPEFFECT::default();
-                    let effect = match options.mode {
-                        DragMode::Copy => DROPEFFECT_COPY,
-                        DragMode::Move => DROPEFFECT_MOVE,
-                    };
+                    // OLE has no equivalent for the macOS-only `Generic`, `Private`, `Delete`
+                    // and `Every` operations.
+                    let mut effect = DROPEFFECT_NONE;
+                    for (mode, dropeffect) in [
+                        (DragMode::Copy, DROPEFFECT_COPY),
+                        (DragMode::Link, DROPEFFECT_LINK),
+                        (DragMode::Move, DROPEFFECT_MOVE),
+                    ] {
+                        if options.mode.contains(mode) {
+                            effect |= dropeffect;
+                        }
+                    }
 
                     let drop_result =
                         DoDragDrop(&data_object, &drop_source, effect, &mut out_dropeffect);

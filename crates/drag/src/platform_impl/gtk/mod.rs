@@ -27,10 +27,18 @@ pub fn start_drag<F: Fn(DragResult, CursorPosition) + Send + 'static>(
 ) -> crate::Result<()> {
     log::debug!("Starting drag operation with mode: {:?}", options.mode);
     let handler_ids: Arc<Mutex<Vec<SignalHandlerId>>> = Arc::new(Mutex::new(vec![]));
-    let drag_action = match options.mode {
-        DragMode::Copy => gdk::DragAction::COPY,
-        DragMode::Move => gdk::DragAction::MOVE,
-    };
+    // gdk has no equivalent for the macOS-only `Generic`, `Delete` and `Every` operations.
+    let mut drag_action = gdk::DragAction::empty();
+    for (mode, action) in [
+        (DragMode::Copy, gdk::DragAction::COPY),
+        (DragMode::Link, gdk::DragAction::LINK),
+        (DragMode::Private, gdk::DragAction::PRIVATE),
+        (DragMode::Move, gdk::DragAction::MOVE),
+    ] {
+        if options.mode.contains(mode) {
+            drag_action |= action;
+        }
+    }
 
     log::debug!("Setting drag source with action: {:?}", drag_action);
     window.drag_source_set(gdk::ModifierType::BUTTON1_MASK, &[], drag_action);
